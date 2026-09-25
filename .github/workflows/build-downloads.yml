@@ -1,0 +1,97 @@
+name: Build download files
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app
+        run: sh build-macos.sh
+      - name: Verify app and make download
+        run: |
+          codesign --verify --deep --strict build/GesturePrompt.app
+          ditto -c -k --sequesterRsrc --keepParent build/GesturePrompt.app GesturePrompt-macos-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: GesturePrompt-macos-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Install build dependencies
+        run: |
+          python -m pip install -r windows/requirements.txt
+          python -m pip install pyinstaller==6.16.0
+      - name: Download gesture model
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task' -OutFile windows/gesture_recognizer.task
+      - name: Build single executable
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console --name GesturePrompt-Windows --collect-all mediapipe --hidden-import mediapipe.tasks.c --add-data 'windows/gesture_recognizer.task:.' windows/camera.py
+      - name: Check bundled recognizer
+        shell: pwsh
+        run: .\dist\GesturePrompt-Windows.exe --self-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist/GesturePrompt-Windows.exe
+          if-no-files-found: error
+
+  draft-release:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Validate version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Use a version such as v0.1.0.' >&2
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloads
+          pattern: '*'
+          merge-multiple: true
+      - name: Create draft release with downloads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "$RELEASE_VERSION" downloads/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_VERSION" \
+            --generate-notes \
+            --draft

@@ -1,41 +1,35 @@
-# 제스처로 현재 AI 입력창 수정하기
+# Gesture Prompt
 
-이 프로그램은 별도 웹사이트를 열지 않습니다. 백그라운드에서 카메라를 분석하고, **지금 키보드 포커스가 있는 입력 위치**에 엄지 올림 또는 내림 문구를 추가합니다. VS Code의 Codex, 브라우저의 AI 채팅 입력칸, 일반 텍스트 입력칸에서 같은 방식으로 작동합니다. 이미 전송한 메시지는 바꾸지 않습니다.
+카메라로 엄지 올림과 내림을 인식해 현재 키보드 포커스가 있는 입력칸에 문구를 추가합니다. 이미 전송한 메시지는 바꾸지 않고, 문구를 자동 전송하지도 않습니다.
 
-## macOS
+## 사용자 다운로드
+
+배포 후에는 [다운로드 페이지](https://meoyaho.github.io/ai-world/)에서 운영체제에 맞는 파일을 받습니다. Mac은 ZIP을 풀어 `GesturePrompt.app`을 열고, Windows는 `GesturePrompt-Windows.exe`를 더블클릭합니다. 사용자는 소스 코드 폴더를 받거나 터미널 명령어를 실행할 필요가 없습니다.
+
+- **Mac:** 메뉴 막대의 🖐 아이콘에서 **접근성 권한 요청**을 눌러 허용하고 **카메라 켜기**를 선택합니다. 원하는 입력칸을 클릭한 채 엄지를 약 1초 유지합니다. **손짓별 문구 설정…**에서 문구를 바꿀 수 있습니다.
+- **Windows:** EXE를 더블클릭하고 카메라 권한을 허용합니다. 원하는 입력칸을 클릭한 채 엄지를 약 1초 유지합니다. 열려 있는 콘솔 창을 닫으면 카메라가 종료됩니다.
+
+모든 앱에 키 입력을 보내는 방식이므로 코드 편집기처럼 다른 곳에 커서가 있으면 그곳에 문구가 들어갈 수 있습니다. 운영체제가 입력칸 정보를 노출하지 않는 앱도 있어, 프로그램은 현재 포커스가 텍스트 입력칸인지 항상 확인하지는 못합니다. 카메라 영상은 기기에서 손짓을 인식하는 데 사용합니다.
+
+## 저장소에서 다운로드 파일 만들기
+
+1. [Settings → Pages](https://github.com/meoyaho/ai-world/settings/pages)에서 **Deploy from a branch**, **main**, **/docs**를 선택해 다운로드 페이지를 켭니다.
+2. [Actions → Build download files](https://github.com/meoyaho/ai-world/actions/workflows/build-downloads.yml)에서 **Run workflow**를 누르고 버전(예: `v0.1.0`)을 입력합니다.
+3. macOS 두 종류와 Windows 빌드가 모두 끝나면 [Releases](https://github.com/meoyaho/ai-world/releases)에 초안이 생깁니다. 파일을 확인한 뒤 **Publish release**를 누르면 다운로드 버튼이 작동합니다.
+
+이 작업은 GitHub의 빌드 컴퓨터에서 Mac 앱 두 종류와 Windows 단일 EXE를 만듭니다. Windows 사용자에게 Python 또는 .NET 설치를 요구하지 않습니다. Windows 빌드는 묶음 안의 손짓 모델이 열리는 것까지 자동 확인합니다. 실제 Windows 카메라와 다른 앱 입력은 별도 Windows 기기에서 확인해야 합니다.
+
+현재 Mac 빌드는 개발용 임시 서명이고 Windows EXE도 서명되지 않았습니다. 따라서 초기 시험판 다운로드에는 운영체제 확인 경고가 나올 수 있습니다. 일반 공개 전에 Mac은 Developer ID 서명과 공증, Windows는 신뢰할 수 있는 코드 서명을 추가해야 합니다. 지금 저장소에는 배포용 서명 인증서가 설정되어 있지 않습니다.
+
+## 개발자용 로컬 실행
+
+macOS에서 소스를 수정해 시험할 때만 다음 명령을 사용합니다.
 
 ```sh
 sh build-macos.sh
 open build/GesturePrompt.app
 ```
 
-1. 화면 위 메뉴 막대의 🖐 아이콘을 눌러 **접근성 권한 요청**을 선택하고 시스템 설정에서 허용합니다.
-2. 메뉴에서 **카메라 켜기**를 선택합니다.
-3. 문구를 넣을 입력칸을 클릭합니다. 엄지를 약 0.7초 유지하면 현재 키보드 포커스 위치에 문구를 입력합니다.
+다시 빌드한 후 손쉬운 사용 권한을 켰는데도 권한 오류가 지속되면 `tccutil reset Accessibility com.example.gestureprompt`로 이 앱의 권한 기록을 초기화하고 새 권한 요청을 허용합니다.
 
-카메라 없이 먼저 확인하려면 입력칸을 클릭한 뒤 메뉴 막대에서 **👍 현재 입력창에 시험**을 선택하세요. 메뉴의 상태 줄에는 입력 시도 결과가 표시됩니다. 이 작업은 메시지를 전송하지 않습니다.
-
-개발 중 앱을 다시 빌드하면 macOS가 접근성 권한을 새 실행 파일에 다시 요구할 수 있습니다. 시험 메뉴에 **접근성 권한이 필요합니다**가 보이면 **시스템 설정 → 개인정보 보호 및 보안 → 손쉬운 사용**에서 Gesture Prompt를 다시 허용하세요. 설정을 켰는데도 권한 오류가 지속되면 `tccutil reset Accessibility com.example.gestureprompt`를 실행하고 앱을 다시 연 뒤 새 권한 요청을 허용하세요.
-
-모든 앱에 실제 키 입력을 보내므로 앱별 입력창 구조를 찾을 필요가 없습니다. CLI의 현재 커서에도 같은 방식으로 입력합니다. 이전에 넣은 문구를 자동 교체하지는 않습니다. 문구는 **손짓별 문구 설정…**에서 바꿀 수 있습니다.
-
-## Windows
-
-Windows에는 [Python](https://www.python.org/downloads/windows/)과 [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)가 필요합니다. 프로젝트 폴더에서 다음 명령을 실행합니다.
-
-```powershell
-py -m pip install -r windows/requirements.txt
-dotnet build windows/GesturePromptEditor.csproj -c Release
-py windows/camera.py
-```
-
-첫 실행에 MediaPipe 손짓 모델을 내려받습니다. 카메라 프로세스를 켜 둔 채 원하는 입력칸을 클릭하고 엄지를 약 0.7초 유지하세요. Windows도 현재 키보드 포커스에 실제 키 입력을 보냅니다. `Ctrl+C`로 카메라를 종료합니다.
-
-Windows 버전은 이 macOS 개발 환경에서 빌드하거나 실제 카메라로 검증할 수 없었습니다.
-
-## 동작 범위
-
-- 카메라는 기기에서 분석합니다. macOS는 Apple Vision, Windows는 MediaPipe를 사용합니다.
-- 손짓으로 추가한 문구는 자동 제출되지 않습니다.
-- **원하는 입력칸에 키보드 포커스가 있어야** 정확한 곳에 입력됩니다. 코드 편집창에 포커스가 있으면 그곳에 들어갈 수 있습니다.
-- 운영체제가 입력칸 정보를 노출하지 않는 앱도 있으므로, 프로그램은 현재 포커스가 실제 텍스트 입력칸인지 항상 확인할 수는 없습니다. 메뉴 상태의 성공 표시는 키 입력을 보낸 사실을 뜻합니다.
+Windows 소스 코드는 `windows/camera.py`입니다. GitHub Actions가 Python, MediaPipe, OpenCV, 손짓 모델을 하나의 EXE에 묶습니다.

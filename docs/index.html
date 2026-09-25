@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d141f">
+  <title>Gesture Prompt 다운로드</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #edf3fa; background: #0d141f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    main { width: min(860px, calc(100% - 40px)); margin: 0 auto; padding: 76px 0 96px; }
+    .eyebrow { margin: 0 0 14px; color: #8ccefb; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(42px, 8vw, 72px); letter-spacing: -.055em; line-height: 1.08; }
+    .lead { max-width: 680px; margin: 25px 0 34px; color: #bed0df; font-size: clamp(18px, 3vw, 22px); line-height: 1.65; }
+    .downloads { display: flex; flex-wrap: wrap; gap: 12px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 20px; border: 1px solid #8ccefb; border-radius: 12px; background: #8ccefb; color: #0d141f; font-weight: 750; text-decoration: none; }
+    .button:hover { background: #bce4ff; border-color: #bce4ff; }
+    .button.secondary { background: transparent; color: #edf3fa; border-color: #52667a; }
+    .button.secondary:hover { background: #1d2b3b; }
+    section { margin-top: 68px; }
+    h2 { font-size: 25px; letter-spacing: -.03em; }
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 0; list-style: none; counter-reset: step; }
+    .steps li { padding: 22px; border: 1px solid #34485d; border-radius: 16px; background: #172433; line-height: 1.55; counter-increment: step; }
+    .steps li::before { content: counter(step, decimal-leading-zero); display: block; margin-bottom: 16px; color: #8ccefb; font-weight: 800; }
+    .note { color: #a8bacb; line-height: 1.7; }
+    a { color: #8ccefb; }
+    @media (max-width: 650px) { main { padding-top: 54px; } .steps { grid-template-columns: 1fr; } .downloads { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">카메라 손짓으로 입력 중인 문구 바꾸기</p>
+    <h1>Gesture Prompt</h1>
+    <p class="lead">엄지를 올리거나 내리면 지금 키보드 커서가 있는 입력칸에 설정한 문구를 추가합니다. VS Code의 Codex, 브라우저의 AI 채팅, 일반 입력칸에서 사용할 수 있습니다.</p>
+    <div class="downloads" aria-label="다운로드">
+      <a class="button" href="https://github.com/meoyaho/ai-world/releases/latest/download/GesturePrompt-macos-arm64.zip">Mac 다운로드 · Apple Silicon</a>
+      <a class="button secondary" href="https://github.com/meoyaho/ai-world/releases/latest/download/GesturePrompt-macos-x64.zip">Mac 다운로드 · Intel</a>
+      <a class="button secondary" href="https://github.com/meoyaho/ai-world/releases/latest/download/GesturePrompt-Windows.exe">Windows 다운로드 · 64비트</a>
+    </div>
+
+    <section>
+      <h2>사용 방법</h2>
+      <ol class="steps">
+        <li>Mac에서는 ZIP을 풀고 GesturePrompt 앱을 엽니다. Windows에서는 EXE를 더블클릭합니다.</li>
+        <li>Mac에서는 메뉴 막대의 🖐 아이콘에서 손쉬운 사용 권한을 허용하고 ‘카메라 켜기’를 누릅니다. Windows에서는 카메라 권한을 허용합니다.</li>
+        <li>문구를 넣을 입력칸을 클릭하고 엄지를 약 1초 유지합니다. 전송 버튼은 자동으로 누르지 않습니다.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>알아둘 점</h2>
+      <p class="note">카메라 영상은 기기 안에서 손짓을 인식하는 데 사용합니다. 포커스가 코드 편집기나 다른 입력칸에 있으면 그곳에 문구가 들어갑니다. 초기 시험판은 운영체제의 앱 확인 경고가 나타날 수 있습니다.</p>
+      <p class="note"><a href="https://github.com/meoyaho/ai-world/releases">전체 버전 보기</a> · <a href="https://github.com/meoyaho/ai-world">소스 코드와 자세한 설명</a></p>
+    </section>
+  </main>
+</body>
+</html>

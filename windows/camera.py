@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
+import ctypes
 import sys
 import time
 import urllib.request
@@ -21,22 +21,77 @@ MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/"
     "gesture_recognizer/float16/1/gesture_recognizer.task"
 )
-EDITOR = HERE / "bin" / "Release" / "net8.0-windows" / "GesturePromptEditor.dll"
 UP_TEXT = '답변을 시작할 때 "정말 감사합니다!"라고 말하고, 전체적으로 지나치게 공손하고 굽신거리는 말투로 답해줘.'
 DOWN_TEXT = '답변에 "젠장", "이딴 건" 같은 거친 표현을 섞고, 질문 내용을 신랄하게 깎아내리는 말투로 답해줘.'
+
+
+class KeybdInput(ctypes.Structure):
+    _fields_ = [
+        ("virtual_key", ctypes.c_uint16),
+        ("scan", ctypes.c_uint16),
+        ("flags", ctypes.c_uint32),
+        ("time", ctypes.c_uint32),
+        ("extra_info", ctypes.c_size_t),
+    ]
+
+
+class MouseInput(ctypes.Structure):
+    _fields_ = [
+        ("x", ctypes.c_int32),
+        ("y", ctypes.c_int32),
+        ("mouse_data", ctypes.c_uint32),
+        ("flags", ctypes.c_uint32),
+        ("time", ctypes.c_uint32),
+        ("extra_info", ctypes.c_size_t),
+    ]
+
+
+class InputUnion(ctypes.Union):
+    _fields_ = [("keyboard", KeybdInput), ("mouse", MouseInput)]
+
+
+class Input(ctypes.Structure):
+    _fields_ = [("type", ctypes.c_uint32), ("data", InputUnion)]
+
+
+def type_at_cursor(text: str) -> bool:
+    """Send Unicode keystrokes to the active window without pressing Enter."""
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.GetForegroundWindow.restype = ctypes.c_void_p
+    if not user32.GetForegroundWindow():
+        return False
+    user32.SendInput.argtypes = [ctypes.c_uint32, ctypes.POINTER(Input), ctypes.c_int]
+    user32.SendInput.restype = ctypes.c_uint32
+    encoded = text.encode("utf-16-le")
+    units = [int.from_bytes(encoded[i:i + 2], "little") for i in range(0, len(encoded), 2)]
+    events = (Input * (len(units) * 2))()
+    for index, unit in enumerate(units):
+        events[index * 2].type = 1  # INPUT_KEYBOARD
+        events[index * 2].data.keyboard = KeybdInput(0, unit, 0x0004, 0, 0)
+        events[index * 2 + 1].type = 1
+        events[index * 2 + 1].data.keyboard = KeybdInput(0, unit, 0x0004 | 0x0002, 0, 0)
+    return user32.SendInput(len(events), events, ctypes.sizeof(Input)) == len(events)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="손짓으로 현재 입력창에 문구 추가")
     parser.add_argument("--camera", type=int, default=0, help="카메라 번호")
+    parser.add_argument("--self-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    if not EDITOR.exists():
-        print("먼저 `dotnet build windows/GesturePromptEditor.csproj -c Release`를 실행하세요.", file=sys.stderr)
-        return 1
     if not MODEL.exists():
         print("손짓 인식 모델을 받는 중입니다…")
         urllib.request.urlretrieve(MODEL_URL, MODEL)
+
+    options = vision.GestureRecognizerOptions(
+        base_options=python.BaseOptions(model_asset_path=str(MODEL)),
+        running_mode=vision.RunningMode.VIDEO,
+        num_hands=1,
+    )
+    if args.self_test:
+        with vision.GestureRecognizer.create_from_options(options):
+            print("손짓 인식 모델을 열었습니다.")
+        return 0
 
     camera = cv2.VideoCapture(args.camera, cv2.CAP_DSHOW)
     if not camera.isOpened():
@@ -45,11 +100,6 @@ def main() -> int:
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    options = vision.GestureRecognizerOptions(
-        base_options=python.BaseOptions(model_asset_path=str(MODEL)),
-        running_mode=vision.RunningMode.VIDEO,
-        num_hands=1,
-    )
     print("카메라 켜짐. 원하는 입력칸을 클릭하고 엄지를 0.7초 유지하세요. Ctrl+C로 종료합니다.")
     candidate = None
     candidate_since = 0.0
@@ -80,16 +130,10 @@ def main() -> int:
                 elif armed and now - candidate_since >= 0.7:
                     armed = False
                     instruction = UP_TEXT if gesture == "Thumb_Up" else DOWN_TEXT
-                    command = ["dotnet", str(EDITOR), "up" if gesture == "Thumb_Up" else "down",
-                               instruction]
-                    completed = subprocess.run(
-                        command,
-                        capture_output=True,
-                        text=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                        check=False,
-                    )
-                    print(completed.stdout.strip() or completed.stderr.strip())
+                    if type_at_cursor(" " + instruction):
+                        print("현재 입력 위치에 문구 추가 시도됨")
+                    else:
+                        print("키 입력이 차단되었거나 활성 창이 없습니다.", file=sys.stderr)
                 time.sleep(0.05)
     except KeyboardInterrupt:
         print("카메라를 종료합니다.")
