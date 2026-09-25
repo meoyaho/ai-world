@@ -74,6 +74,10 @@ def type_at_cursor(text: str) -> bool:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(description="손짓으로 현재 입력창에 문구 추가")
     parser.add_argument("--camera", type=int, default=0, help="카메라 번호")
     parser.add_argument("--self-test", action="store_true", help=argparse.SUPPRESS)
@@ -90,7 +94,7 @@ def main() -> int:
     )
     if args.self_test:
         with vision.GestureRecognizer.create_from_options(options):
-            print("손짓 인식 모델을 열었습니다.")
+            print("Gesture recognizer OK")
         return 0
 
     camera = cv2.VideoCapture(args.camera, cv2.CAP_DSHOW)
