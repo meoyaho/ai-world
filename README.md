@@ -14,8 +14,8 @@
 ## 저장소에서 다운로드 파일 만들기
 
 1. [Settings → Pages](https://github.com/meoyaho/ai-world/settings/pages)에서 **Deploy from a branch**, **main**, **/docs**를 선택해 다운로드 페이지를 켭니다.
-2. [Actions → Build download files](https://github.com/meoyaho/ai-world/actions/workflows/build-downloads.yml)에서 **Run workflow**를 누르고 버전(예: `v0.1.0`)을 입력합니다.
-3. macOS 두 종류와 Windows 빌드가 모두 끝나면 [Releases](https://github.com/meoyaho/ai-world/releases)에 초안이 생깁니다. 파일을 확인한 뒤 **Publish release**를 누르면 다운로드 버튼이 작동합니다.
+2. `main`에 변경 사항이 올라오면 [Actions → Build download files](https://github.com/meoyaho/ai-world/actions/workflows/build-downloads.yml)에서 Mac과 Windows 빌드가 자동으로 실행됩니다.
+3. `v0.1.0` 같은 버전 태그를 저장소에 올리면 다운로드 파일을 다시 빌드하고 [Releases](https://github.com/meoyaho/ai-world/releases)에 초안으로 첨부합니다. 파일을 확인한 뒤 **Publish release**를 누르면 다운로드 버튼이 작동합니다.
 
 이 작업은 GitHub의 빌드 컴퓨터에서 Mac 앱 두 종류와 Windows 단일 EXE를 만듭니다. Windows 사용자에게 Python 또는 .NET 설치를 요구하지 않습니다. Windows 빌드는 묶음 안의 손짓 모델이 열리는 것까지 자동 확인합니다. 실제 Windows 카메라와 다른 앱 입력은 별도 Windows 기기에서 확인해야 합니다.
 
