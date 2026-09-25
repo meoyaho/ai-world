@@ -61,7 +61,14 @@ jobs:
           python -m PyInstaller --noconfirm --clean --onefile --console --name GesturePrompt-Windows --collect-all mediapipe --hidden-import mediapipe.tasks.c --add-data 'windows/gesture_recognizer.task:.' windows/camera.py
       - name: Check bundled recognizer
         shell: pwsh
-        run: .\dist\GesturePrompt-Windows.exe --self-test
+        run: |
+          $process = Start-Process -FilePath .\dist\GesturePrompt-Windows.exe -ArgumentList '--self-test' -Wait -PassThru -RedirectStandardOutput selftest.stdout.txt -RedirectStandardError selftest.stderr.txt
+          Get-Content selftest.stdout.txt
+          if ($process.ExitCode -ne 0) {
+            Get-Content selftest.stderr.txt | ForEach-Object { Write-Host "::error::$_" }
+            exit $process.ExitCode
+          }
+          Get-Content selftest.stderr.txt
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
