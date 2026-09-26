@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Gesture Prompt",
+  "version": "0.2.0",
+  "description": "엄지척·하트·주먹질 같은 손짓으로 웹 입력칸에 쓴 문장을 매우 공손하게 또는 매우 무례하게 다시 씁니다.",
+  "minimum_chrome_version": "116",
+  "permissions": ["offscreen", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Gesture Prompt",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["preview.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "toggle-camera": {
+      "suggested_key": { "default": "Alt+Shift+G" },
+      "description": "카메라 켜기/끄기"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://*.run.app"
+  }
+}

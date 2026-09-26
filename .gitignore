@@ -1,7 +1,3 @@
-/build/
 /dist/
-/*.spec
-/windows/__pycache__/
-/windows/gesture_recognizer.task
-/windows/bin/
-/windows/obj/
+/extension/vendor/
+.DS_Store

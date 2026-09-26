@@ -1,2 +1,0 @@
-mediapipe>=0.10.20,<2
-opencv-python>=4.10,<5

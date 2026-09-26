@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesture Prompt 카메라 권한</title>
+<link rel="stylesheet" href="ui.css">
+<body>
+  <main class="page">
+    <h1>카메라 권한 허용</h1>
+    <div class="card">
+      <p>손짓을 인식하려면 카메라 권한이 한 번 필요합니다. 영상은 이 컴퓨터 안에서만 처리되고 어디에도 전송되지 않습니다.</p>
+      <div class="actions">
+        <button class="button" type="button" id="allow">카메라 허용하기</button>
+        <span class="saved" id="result" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="permission.js"></script>
+</body>
+</html>
