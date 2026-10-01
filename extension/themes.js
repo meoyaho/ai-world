@@ -2,8 +2,8 @@
 // chrome://extensions에 보이는 이름은 manifest.json에 고정되어 바꿀 수 없다.
 export const THEMES = {
   default: { name: 'Gesture Prompt', icon: 'icons/icon' },
-  rules: { name: 'plz 지배 me', icon: 'icons/rules' },
-  junk: { name: '일해라 ai', icon: 'icons/junk' },
+  rules: { name: 'AI 이완용', icon: 'icons/rules' },
+  junk: { name: 'AI 독립군', icon: 'icons/junk' },
 };
 
 const iconPaths = (prefix) => Object.fromEntries([16, 32, 48, 128].map((size) => [size, `${prefix}${size}.png`]));
