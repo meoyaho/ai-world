@@ -5,6 +5,18 @@
 <link rel="stylesheet" href="ui.css">
 <body>
   <main class="popup">
+    <header class="popup__header">
+      <img class="popup__icon" id="icon" src="icons/icon32.png" alt="" width="24" height="24">
+      <h1 id="name">Gesture Prompt</h1>
+    </header>
+    <div class="themes" role="group" aria-label="테마">
+      <button class="theme" type="button" data-theme="rules" aria-pressed="false">
+        <img src="icons/rules32.png" alt="" width="20" height="20">AI가 세상을 지배한다
+      </button>
+      <button class="theme" type="button" data-theme="junk" aria-pressed="false">
+        <img src="icons/junk32.png" alt="" width="20" height="20">AI는 고철이다
+      </button>
+    </div>
     <button class="button popup__toggle" id="toggle" type="button">카메라 켜기</button>
   </main>
   <script type="module" src="popup.js"></script>

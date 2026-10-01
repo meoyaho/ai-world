@@ -1,5 +1,6 @@
 import { GESTURES } from './gestures.js';
 import { RewriteError, rewriteTone } from './rewrite.js';
+import { applyActionTheme } from './themes.js';
 
 const OFFSCREEN_URL = 'offscreen.html';
 let creatingOffscreen = null;
@@ -107,6 +108,9 @@ function pageAction(mode, text, expected) {
 }
 
 const normalize = (text) => text.replace(/\s+/g, ' ').trim();
+// ChatGPT·Claude 같은 편집기는 넣은 글의 공백·따옴표·보이지 않는 문자를 바꿔 저장하므로,
+// 방금 바꾼 글인지 비교할 때는 이런 문자를 모두 빼고 본다.
+const looseKey = (text) => text.replace(/[\s\u00a0\u200b-\u200d\ufeff"'“”‘’`.,!?~…]/g, '');
 
 let rewriting = false;
 
@@ -124,8 +128,8 @@ async function rewriteActiveInput(gesture) {
 
 async function rewriteOnce(gesture) {
   if (!GESTURES[gesture]) return;
-  // 긍정 손짓(엄지척·하트·빌기)은 공손하게(up), 부정 손짓(엄지 아래·가운데 손가락·주먹)은 무례하게(down)
-  const { symbol, tone } = GESTURES[gesture];
+  // 손짓마다 말투가 다르다. (서버의 functions/handler.js STYLES)
+  const { symbol } = GESTURES[gesture];
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab?.id) return report('활성 탭이 없습니다.');
 
@@ -147,17 +151,19 @@ async function rewriteOnce(gesture) {
 
   const current = target.result.text;
   if (!normalize(current)) return report('입력칸에 먼저 문장을 써주세요.');
-  // 방금 바꾼 글에 다시 손짓하면 원래 문장을 기준으로 바꾼다. (👍 뒤 👎 전환)
+  // 이 탭에서 바꿔 넣었던 글에 다시 손짓하면, 그 결과가 아니라 처음 쓴 문장을 기준으로 바꾼다.
+  // (👎 결과 위에 👍를 해도 욕이 남지 않게)
   const { lastRewrite } = await chrome.storage.session.get('lastRewrite');
-  const original = lastRewrite?.tabId === tab.id && normalize(lastRewrite.result) === normalize(current)
-    ? lastRewrite.original
-    : current;
+  const key = looseKey(current);
+  const sameChain = lastRewrite?.tabId === tab.id &&
+    [lastRewrite.original, ...(lastRewrite.results ?? [])].some((text) => looseKey(text) === key);
+  const original = sameChain ? lastRewrite.original : current;
 
   await chrome.action.setBadgeText({ text: '…' });
   await report(`${symbol} 말투를 바꾸는 중…`);
   let result;
   try {
-    result = await rewriteTone(original, tone);
+    result = await rewriteTone(original, gesture);
   } catch (error) {
     return report(error instanceof RewriteError ? error.message : `다시 쓰지 못했습니다. (${error.message})`);
   }
@@ -176,7 +182,8 @@ async function rewriteOnce(gesture) {
   if (replaced?.result === 'changed') return report('그사이 글이 바뀌어 덮어쓰지 않았습니다.');
   if (replaced?.result === 'none') return report('입력칸 포커스가 사라져 글을 넣지 못했습니다.');
   if (replaced?.result !== 'replaced') return report('이 입력칸의 글은 바꾸지 못했습니다.');
-  await chrome.storage.session.set({ lastRewrite: { tabId: tab.id, original, result } });
+  const results = sameChain ? [...(lastRewrite.results ?? []), result].slice(-10) : [result];
+  await chrome.storage.session.set({ lastRewrite: { tabId: tab.id, original, results } });
   await flashBadge(symbol);
   return report(`${symbol} 말투를 바꿨습니다. 확인 후 전송하세요.`);
 }
@@ -229,3 +236,10 @@ chrome.commands.onCommand.addListener((command) => {
 // 브라우저를 다시 열면 offscreen 문서가 없으므로 상태를 초기화한다.
 chrome.runtime.onStartup.addListener(() => stopCamera());
 chrome.runtime.onInstalled.addListener(() => stopCamera());
+
+// 팝업에서 고른 테마로 툴바 아이콘과 이름을 바꾼다. 브라우저를 다시 열면 manifest 아이콘으로 돌아가므로 다시 적용한다.
+chrome.runtime.onStartup.addListener(applyActionTheme);
+chrome.runtime.onInstalled.addListener(applyActionTheme);
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (changes.theme) applyActionTheme();
+});

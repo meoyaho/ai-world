@@ -1,3 +1,8 @@
+// 고른 테마 이름으로 제목을 바꾼다.
+chrome.storage.local.get('appearance').then(({ appearance }) => {
+  if (appearance) document.title = `${appearance.name} 카메라 권한`;
+});
+
 const result = document.getElementById('result');
 
 document.getElementById('allow').addEventListener('click', async () => {

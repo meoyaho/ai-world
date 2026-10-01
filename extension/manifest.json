@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["preview.html"],
+      "resources": ["preview.html", "icons/*.png"],
       "matches": ["<all_urls>"]
     }
   ],

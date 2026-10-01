@@ -22,6 +22,8 @@
       }
       .bar { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 6px 0 10px; cursor: grab; touch-action: none; }
       .window[data-dragging] .bar { cursor: grabbing; }
+      .title { display: flex; align-items: center; gap: 6px; }
+      .icon { border-radius: 4px; }
       .close { width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: #a1a1a6; font: inherit; font-size: 15px; cursor: pointer; }
       .close:hover { background: rgba(255, 255, 255, .12); color: #fff; }
       /* 창 안의 화면은 보기 전용이라 클릭이 페이지로 지나가게 한다. */
@@ -29,7 +31,7 @@
     </style>
     <div class="window" part="window">
       <div class="bar" title="끌어서 옮기기">
-        <span>🖐 Gesture Prompt</span>
+        <span class="title"><img class="icon" alt="" width="16" height="16"><span class="name">Gesture Prompt</span></span>
         <button class="close" type="button" title="카메라 끄기" aria-label="카메라 끄기">×</button>
       </div>
       <iframe title="손짓 인식 화면"></iframe>
@@ -38,6 +40,15 @@
   const win = shadow.querySelector('.window');
   const bar = shadow.querySelector('.bar');
   const close = shadow.querySelector('.close');
+  const titleIcon = shadow.querySelector('.icon');
+  const titleName = shadow.querySelector('.name');
+
+  // 팝업에서 고른 테마의 이름과 아이콘을 제목줄에 쓴다.
+  function applyAppearance(appearance = { name: 'Gesture Prompt', icon: 'icons/icon32.png' }) {
+    titleName.textContent = appearance.name;
+    titleIcon.src = chrome.runtime.getURL(appearance.icon);
+  }
+  chrome.storage.local.get('appearance').then(({ appearance }) => applyAppearance(appearance));
   shadow.querySelector('iframe').src = chrome.runtime.getURL('preview.html');
 
   function place(left, top) {
@@ -88,6 +99,7 @@
       applyOffset();
     }
     if (changes.cameraOn && !changes.cameraOn.newValue) remove();
+    if (changes.appearance) applyAppearance(changes.appearance.newValue);
   });
 
   function remove() {

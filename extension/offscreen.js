@@ -27,7 +27,7 @@ let candidate = null;
 let candidateSince = 0;
 let armed = true;
 
-// 팝업이 열려 있는 동안에만 인식 결과를 보낸다.
+// 미리보기 창이 열려 있는 동안에만 인식 결과를 보낸다.
 const previews = new Set();
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'preview') return;
