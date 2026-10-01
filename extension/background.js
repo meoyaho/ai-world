@@ -44,6 +44,11 @@ async function hasOffscreen() {
 
 async function startCamera() {
   if (await hasOffscreen()) return;
+  const { privacyConsent } = await chrome.storage.local.get('privacyConsent');
+  if (!privacyConsent) {
+    await chrome.tabs.create({ url: 'permission.html' });
+    return;
+  }
   await setState({ cameraOn: true, status: '카메라를 켜는 중…' });
   creatingOffscreen ??= chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,

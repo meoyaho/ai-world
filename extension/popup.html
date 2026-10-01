@@ -6,17 +6,20 @@
 <body>
   <main class="popup">
     <header class="popup__header">
-      <img class="popup__icon" id="icon" src="icons/icon32.png" alt="" width="24" height="24">
-      <h1 id="name">AI 이완용 vs AI 독립군</h1>
+      <img class="popup__icon" src="icons/icon32.png" alt="" width="24" height="24">
+      <h1>AI 이완용 vs AI 독립군</h1>
     </header>
-    <div class="themes" role="group" aria-label="테마">
-      <button class="theme" type="button" data-theme="rules" aria-pressed="false">
-        <img src="icons/rules32.png" alt="" width="20" height="20">plz 지배 me
-      </button>
-      <button class="theme" type="button" data-theme="junk" aria-pressed="false">
-        <img src="icons/junk32.png" alt="" width="20" height="20">일해라 ai
-      </button>
+    <div class="gesture-cards">
+      <div class="gesture-card">
+        <img src="icons/rules48.png" alt="AI 이완용" width="48" height="48">
+        <span>👍 🫶 🙏</span>
+      </div>
+      <div class="gesture-card">
+        <img src="icons/junk48.png" alt="AI 독립군" width="48" height="48">
+        <span>👎 🖕 👊</span>
+      </div>
     </div>
+    <p class="popup__notice">다양한 손짓으로 프롬프트를 수정해보세요</p>
     <button class="button popup__toggle" id="toggle" type="button">카메라 켜기</button>
   </main>
   <script type="module" src="popup.js"></script>
