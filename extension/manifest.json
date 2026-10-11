@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gesture Prompt",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "엄지척·하트·주먹질 같은 손짓으로 웹 입력칸에 쓴 문장을 매우 공손하게 또는 매우 무례하게 다시 씁니다.",
   "minimum_chrome_version": "116",
   "permissions": ["offscreen", "scripting", "storage"],

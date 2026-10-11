@@ -52,8 +52,8 @@ async function startCamera() {
   await setState({ cameraOn: true, status: '카메라를 켜는 중…' });
   creatingOffscreen ??= chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
-    reasons: ['USER_MEDIA'],
-    justification: '카메라 영상에서 엄지 손짓을 인식합니다.',
+    reasons: ['USER_MEDIA', 'WEB_RTC'],
+    justification: '카메라 손짓을 인식하고 웹페이지 미리보기로 실시간 영상을 보냅니다.',
   }).finally(() => { creatingOffscreen = null; });
   await creatingOffscreen;
 }

@@ -3,7 +3,6 @@ import { FilesetResolver, GestureRecognizer } from './vendor/vision_bundle.mjs';
 import { PunchDetector, classifyPose } from './gestures.js';
 
 const HOLD_MS = 700;
-// 주먹 치기처럼 빠른 동작을 놓치지 않도록 초당 약 12번 본다.
 const FRAME_INTERVAL_MS = 80;
 const PREVIEW_WIDTH = 320;
 const PREVIEW_HEIGHT = 240;
@@ -23,17 +22,96 @@ console.error = (...args) => {
 
 const video = document.getElementById('camera');
 let recognizer;
+let recognizerDelegate;
+let fileset;
+let recoveringRecognizer = false;
 let candidate = null;
 let candidateSince = 0;
 let armed = true;
+let publishing = false;
+let pendingFired = null;
+let cameraStream = null;
+let cameraReadyForPreview = false;
 
-// 미리보기 창이 열려 있는 동안에만 인식 결과를 보낸다.
-const previews = new Set();
+// 영상은 WebRTC로 직접 보내고, 확장 메시지는 연결 신호와 손짓 결과에만 쓴다.
+const previews = new Map();
+function postPreview(port, message) {
+  try { port.postMessage(message); } catch (error) { console.debug('미리보기 연결이 닫혔습니다.', error); }
+}
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'preview') return;
-  previews.add(port);
-  port.onDisconnect.addListener(() => previews.delete(port));
+  const viewer = { live: false, peer: null, remoteReady: false, pendingIce: [], signaling: Promise.resolve() };
+  previews.set(port, viewer);
+  port.onMessage.addListener((message) => {
+    viewer.signaling = viewer.signaling.then(() => handlePreviewSignal(port, viewer, message)).catch((error) => {
+      console.warn('실시간 미리보기를 연결하지 못했습니다.', error);
+      viewer.live = false;
+      viewer.peer?.close();
+      viewer.peer = null;
+      viewer.remoteReady = false;
+      viewer.pendingIce = [];
+      if (previews.has(port)) {
+        postPreview(port, { type: 'video-failed' });
+      }
+    });
+  });
+  port.onDisconnect.addListener(() => {
+    viewer.peer?.close();
+    previews.delete(port);
+  });
+  if (cameraReadyForPreview) postPreview(port, { type: 'camera-ready' });
 });
+
+async function handlePreviewSignal(port, viewer, message) {
+  if (!previews.has(port)) return;
+  if (message.type === 'video-ready') {
+    viewer.live = true;
+    return;
+  }
+  if (message.type === 'video-failed') {
+    viewer.live = false;
+    viewer.peer?.close();
+    viewer.peer = null;
+    viewer.remoteReady = false;
+    viewer.pendingIce = [];
+    return;
+  }
+  if (message.type === 'ice') {
+    if (viewer.peer && viewer.remoteReady) await viewer.peer.addIceCandidate(message.candidate);
+    else viewer.pendingIce.push(message.candidate);
+    return;
+  }
+  if (message.type !== 'offer' || !cameraStream) return;
+
+  viewer.peer?.close();
+  const peer = new RTCPeerConnection({ iceServers: [] });
+  viewer.peer = peer;
+  viewer.live = false;
+  viewer.remoteReady = false;
+  peer.onicecandidate = ({ candidate }) => {
+    if (candidate && viewer.peer === peer && previews.has(port)) {
+      postPreview(port, { type: 'ice', candidate: candidate.toJSON() });
+    }
+  };
+  peer.onconnectionstatechange = () => {
+    if (viewer.peer === peer && (peer.connectionState === 'failed' || peer.connectionState === 'disconnected')) {
+      viewer.live = false;
+    }
+  };
+  const sender = peer.addTrack(cameraStream.getVideoTracks()[0], cameraStream);
+  const parameters = sender.getParameters();
+  if (parameters.encodings?.length) {
+    parameters.encodings[0].scaleResolutionDownBy = 2;
+    sender.setParameters(parameters).catch(() => {});
+  }
+  await peer.setRemoteDescription({ type: 'offer', sdp: message.sdp });
+  viewer.remoteReady = true;
+  for (const candidate of viewer.pendingIce) await peer.addIceCandidate(candidate);
+  viewer.pendingIce = [];
+  await peer.setLocalDescription(await peer.createAnswer());
+  if (previews.has(port)) postPreview(port, { type: 'answer', sdp: peer.localDescription.sdp });
+}
 
 function send(message) {
   return chrome.runtime.sendMessage(message).catch(() => {});
@@ -43,11 +121,23 @@ function status(state, text, extra = {}) {
   return send({ type: 'camera-status', state, status: text, ...extra });
 }
 
+function createRecognizer(delegate) {
+  return GestureRecognizer.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: chrome.runtime.getURL('vendor/gesture_recognizer.task'),
+      delegate,
+    },
+    runningMode: 'VIDEO',
+    // 하트와 두 손 모아 빌기는 두 손을 함께 봐야 한다.
+    numHands: 2,
+  });
+}
+
 async function start() {
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480 },
+      video: { width: 640, height: 480, frameRate: { ideal: 30 } },
       audio: false,
     });
   } catch (error) {
@@ -63,32 +153,89 @@ async function start() {
   });
   video.srcObject = stream;
   await video.play();
+  cameraStream = stream;
 
   try {
-    const fileset = await FilesetResolver.forVisionTasks(chrome.runtime.getURL('vendor/wasm'));
-    recognizer = await GestureRecognizer.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: chrome.runtime.getURL('vendor/gesture_recognizer.task'),
-        delegate: 'CPU',
-      },
-      runningMode: 'VIDEO',
-      // 하트와 두 손 모아 빌기는 두 손을 함께 봐야 한다.
-      numHands: 2,
-    });
+    fileset = await FilesetResolver.forVisionTasks(chrome.runtime.getURL('vendor/wasm'));
+    try {
+      recognizer = await createRecognizer('GPU');
+      recognizerDelegate = 'GPU';
+    } catch (error) {
+      console.warn('GPU 손짓 인식을 사용할 수 없어 CPU로 전환합니다.', error);
+      recognizer = await createRecognizer('CPU');
+      recognizerDelegate = 'CPU';
+    }
   } catch (error) {
     stream.getTracks().forEach((track) => track.stop());
     return status('error', `손짓 인식 모델을 불러오지 못했습니다. (${error.message})`);
   }
   await status('on', '카메라 켜짐 · 입력칸에 문장을 쓰고 손짓을 1초 유지하세요');
+  cameraReadyForPreview = true;
+  for (const port of previews.keys()) postPreview(port, { type: 'camera-ready' });
   tick();
 }
 
+// JPEG 대체 화면을 보낼 때만 한 프레임을 복사해 좌표와 영상의 시점을 맞춘다.
+const recognitionFrame = document.createElement('canvas');
+const recognitionContext = recognitionFrame.getContext('2d');
+
+function recoverOnCpu(error) {
+  if (recognizerDelegate !== 'GPU' || recoveringRecognizer) {
+    console.error(error);
+    return;
+  }
+  recoveringRecognizer = true;
+  console.warn('GPU 손짓 인식이 중단되어 CPU로 전환합니다.', error);
+  const failedRecognizer = recognizer;
+  recognizer = null;
+  try { failedRecognizer.close(); } catch (closeError) { console.warn(closeError); }
+  createRecognizer('CPU').then((cpuRecognizer) => {
+    recognizer = cpuRecognizer;
+    recognizerDelegate = 'CPU';
+    candidate = null;
+    armed = true;
+    punches.history = [];
+  }).catch((fallbackError) => {
+    console.error(fallbackError);
+    status('error', '손짓 인식 모델을 다시 불러오지 못했습니다.');
+  }).finally(() => { recoveringRecognizer = false; });
+}
+
 function tick() {
-  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+  if (recognizer && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
     try {
-      const frame = detect();
-      const fired = observe(frame);
-      publish(frame, fired).catch(() => {});
+      const jpegNeeded = [...previews.values()].some((viewer) => !viewer.live);
+      const captureForJpeg = jpegNeeded && !publishing;
+      let imageSource = video;
+      if (captureForJpeg) {
+        if (recognitionFrame.width !== video.videoWidth || recognitionFrame.height !== video.videoHeight) {
+          recognitionFrame.width = video.videoWidth;
+          recognitionFrame.height = video.videoHeight;
+        }
+        recognitionContext.drawImage(video, 0, 0);
+        imageSource = recognitionFrame;
+      }
+      let frame;
+      try { frame = detect(imageSource); } catch (error) { recoverOnCpu(error); }
+      if (frame) {
+        const fired = observe(frame);
+        const message = describeFrame(frame, fired);
+        for (const [port, viewer] of previews) {
+          if (viewer.live) postPreview(port, { type: 'detection', ...message });
+        }
+        if (jpegNeeded) {
+          if (fired) pendingFired = fired;
+          if (captureForJpeg) {
+            publishing = true;
+            const previewMessage = { ...message, fired: pendingFired };
+            pendingFired = null;
+            // WebRTC 연결 전이나 연결 실패 시에만 같은 프레임의 JPEG를 보낸다.
+            publishJpeg(imageSource, previewMessage)
+              .catch((error) => console.error(error))
+              .finally(() => { publishing = false; });
+          }
+        } else pendingFired = null;
+      }
     } catch (error) {
       console.error(error);
     }
@@ -99,15 +246,15 @@ function tick() {
 
 const punches = new PunchDetector();
 
-function detect() {
+function detect(image) {
   const now = performance.now();
-  const result = recognizer.recognizeForVideo(video, now);
+  const result = recognizer.recognizeForVideo(image, now);
   const hands = (result.landmarks ?? []).map((landmarks, index) => ({
     landmarks: landmarks.map(({ x, y }) => [x, y]),
     category: result.gestures?.[index]?.[0]?.categoryName ?? 'None',
     score: result.gestures?.[index]?.[0]?.score ?? 0,
   }));
-  const aspect = video.videoWidth / video.videoHeight || 4 / 3;
+  const aspect = (image.videoWidth ?? image.width) / (image.videoHeight ?? image.height) || 4 / 3;
   return {
     hands: hands.map((hand) => hand.landmarks),
     pose: classifyPose(hands, aspect),
@@ -140,23 +287,27 @@ function observe({ pose, punch }) {
   return null;
 }
 
-// 미리보기 창은 웹페이지 안에 있어 카메라를 직접 열 수 없으므로(사이트마다 권한을 묻게 된다),
-// 인식에 쓰는 영상을 작은 JPEG로 줄여 함께 보낸다.
+function describeFrame(frame, fired) {
+  const hold = candidate === null ? 0 : armed ? Math.min(1, (performance.now() - candidateSince) / HOLD_MS) : 1;
+  return { hands: frame.hands, pose: frame.pose, hold, fired };
+}
+
+// WebRTC가 연결되기 전에는 같은 프레임을 작은 JPEG로 보내 미리보기를 유지한다.
 const snapshot = new OffscreenCanvas(PREVIEW_WIDTH, PREVIEW_HEIGHT);
 const snapshotContext = snapshot.getContext('2d');
 
-async function publish(frame, fired) {
-  if (!previews.size) return;
-  const hold = candidate === null ? 0 : armed ? Math.min(1, (performance.now() - candidateSince) / HOLD_MS) : 1;
-  snapshotContext.drawImage(video, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+async function publishJpeg(imageSource, message) {
+  snapshotContext.drawImage(imageSource, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
   const blob = await snapshot.convertToBlob({ type: 'image/jpeg', quality: 0.7 });
-  const image = await new Promise((resolve) => {
+  const image = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
-  const message = { hands: frame.hands, pose: frame.pose, hold, fired, image };
-  for (const port of previews) port.postMessage(message);
+  for (const [port, viewer] of previews) {
+    if (!viewer.live) postPreview(port, { type: 'jpeg', ...message, image });
+  }
 }
 
 start();
